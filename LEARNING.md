@@ -229,3 +229,85 @@ Commit: `Stage 4: add mock ordering API and HTTP tests`. The repository contains
 - Request bodies: https://fastapi.tiangolo.com/tutorial/body/
 - API testing: https://fastapi.tiangolo.com/tutorial/testing/
 - Application startup: https://fastapi.tiangolo.com/advanced/events/
+
+## Stage 5 — simulate kitchen queue timing
+
+### Files and running
+
+Add kitchen.py and queue_demo.py beside your existing Python files. Update api.py for GET /queue. The new test_kitchen.py and updated test_api.py record verification. No database schema or requirements changes are needed. `python queue_demo.py` runs a fictional comparison without reading or changing your saved orders. GET /queue in the API documentation simulates your actual saved queued orders without modifying them.
+
+### Business question
+
+How does kitchen capacity affect waiting time? A station means one independent preparation slot in this simplified model. This is an educational model, not measured restaurant performance.
+
+### Algorithm steps
+
+1. Validate that station count is a whole number from 1 to 10.
+2. Start every station's available time at zero.
+3. Consider orders in increasing ID order, skipping orders whose status is not queued.
+4. Calculate preparation duration: configured minutes per unit multiplied by quantity.
+5. Find the station available soonest.
+6. Start there when it is free; finish equals start plus preparation duration.
+7. Update that station's available time and record the result.
+8. Summarise average wait, longest wait and time until all orders are ready.
+
+This is a greedy scheduling rule: choose the earliest-free station for each next order. It does not guarantee the best possible ordering of jobs. We preserve ID order as an approximation of arrival order.
+
+### Trace the two-station example
+
+Orders: two burgers take 6 minutes; one fries takes 2; one wrap takes 4.
+
+Initially available_at = [0, 0]. Both stations are free. Order 1 uses station 1 (the first station wins a tie), starts at zero and finishes at six: [6, 0]. Order 2 uses station 2, starts at zero and finishes at two: [6, 2]. Order 3 uses station 2 because two is earlier than six. It starts at two and finishes at six: [6, 6].
+
+Waiting times are [0, 0, 2], so average wait = (0 + 0 + 2) / 3 = 0.67 minutes, rounded. Every order is ready by minute six.
+
+### Read kitchen.py
+
+- PREP_MINUTES maps product IDs to invented per-unit preparation durations. This configuration is separate from money and stock.
+- `[0] * stations` constructs a list with one zero per station. Each entry stores when that station next becomes available.
+- `sorted(..., key=lambda order: order["id"])` makes an ID-ordered list without reordering the input. A lambda is a short anonymous function that tells sorted which value to compare.
+- `continue` skips the remainder of the loop for a non-queued order.
+- `min(range(stations), key=lambda index: available_at[index])` returns the index of the earliest-free station. Indices start at zero; display station numbers use index + 1.
+- Each output dictionary records preparation duration, waiting time and ready time. Waiting is the simulated start time because all orders begin waiting at minute zero.
+- `sum` adds waiting times. Divide by order count for the mean. Empty queues return zero, avoiding division by zero.
+- `max(available_at)` gives when the last busy station finishes. Extra free stations have zero and do not extend that time.
+- The simulator returns data rather than printing it or saving changes. queue_demo.py prints the fictional example, and api.py returns the same kind of data as JSON.
+
+### Waiting versus completion
+
+For order 3 in the two-station example, waiting is 2 minutes and preparation is 4, giving completion after 6 minutes. A third station lets it start immediately and finish after 4, but order 1 still takes 6. Adding capacity can reduce waiting without reducing when every order is done.
+
+| Stations | Average waiting minutes | All orders ready after minutes |
+| --- | --- | --- |
+| 1 | 4.67 | 12 |
+| 2 | 0.67 | 6 |
+| 3 | 0 | 6 |
+
+These findings apply to this fixed example under the stated assumptions, not every workload or a real restaurant.
+
+### Query parameters
+
+GET /queue?stations=2 uses a URL query parameter rather than a JSON body. FastAPI's Query sets the default to 2 and allowed bounds to 1–10. In /docs, change the stations field and Execute. This operation reads queued orders and computes a schedule; repeating it does not place new orders.
+
+### Assumptions and limits
+
+Simulation time starts at zero on every call. We ignore historical created_at times and assume all currently queued orders are available at zero, with all stations free. There is no live countdown or completed-order update. Stations are identical and can prepare every product; each handles one whole order at a time. Preparation duration is proportional to quantity, with no batching or equipment restrictions. Adding products requires configuring their times; missing configuration raises a clear error. Stock reservation happened when ordering and is not repeated by queue calculation.
+
+### Efficiency
+
+For n orders and s stations, sorting costs O(n log n) and finding a station for each order costs O(n × s). Our small model allows at most ten stations, so a simple scan is easy to read. Larger systems could use a priority queue for station availability. Output and sorted order lists use O(n) space; station availability uses O(s).
+
+### Verification and GitHub
+
+Eight scheduling tests cover exact two-station assignment, one and three stations, empty queues, filtering and ID order, invalid station counts, missing preparation times and unchanged inputs. Two API tests check query validation and that simulation leaves stock and saved orders unchanged. All 31 project tests passed, and queue_demo.py produced the table above.
+
+Commit: `Stage 5: simulate kitchen queues and compare capacity`. The example, comparison and assumptions make the algorithm reviewable.
+
+### Main takeaway and exercises
+
+A scheduling algorithm turns assumptions about work and capacity into predicted timings. Compare scenarios and explain both the result and the model's limits.
+
+1. Predict the start and finish times for the third order with one station.
+2. Explain why three stations do not finish every order sooner than two in our example.
+3. Change DEMO_ORDERS quantities and predict which station gets the next order.
+4. Explain why repeatedly reading GET /queue does not reduce stock or mark orders completed.

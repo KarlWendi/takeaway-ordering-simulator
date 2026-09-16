@@ -2,11 +2,31 @@
 
 An educational Python project exploring food ordering, inventory and kitchen waiting times. Uses fictional data and is not affiliated with McDonald's or any other restaurant.
 
-## Current stage: 4 — mock ordering API
+## Current stage: 5 — kitchen queue simulation
 
-The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. The API accepts JSON and returns HTTP status codes for successful requests, missing products, insufficient stock and invalid data. Kitchen scheduling is planned, not implemented yet.
+The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. A queue simulator now assigns queued orders to kitchen stations and reports simulated waiting and completion times. It reads a snapshot without changing stock or order status.
 
 ## Run
+
+### Stage 5: compare kitchen stations
+
+Run the standalone demonstration (no external packages or database access needed):
+
+```text
+python queue_demo.py
+```
+
+It uses three invented orders with preparation durations 6, 2 and 4 minutes:
+
+| Stations | Average wait (minutes) | Longest wait (minutes) | All ready after (minutes) |
+| --- | --- | --- | --- |
+| 1 | 4.67 | 8 | 12 |
+| 2 | 0.67 | 2 | 6 |
+| 3 | 0 | 0 | 6 |
+
+For your saved database orders, start the API as below and use GET /queue in /docs. Enter stations 1, execute, then compare with stations 2 or 3. Query example: `/queue?stations=2`. Reads do not create orders or consume stock. Unknown products without a configured preparation time return 409; invalid station counts return 422.
+
+**Assumptions:** all queued orders are available at simulation minute zero; all stations start free, can prepare any item and handle one whole order at a time. Orders are considered in ascending ID order. Per-unit times are invented: burger 3 minutes, fries 2, wrap 4. Quantity multiplies preparation time; there is no batching, travel time or real clock. Existing queued orders remain queued, even if they are old. Repeating the simulation recalculates from zero; it does not cook orders or mark them completed. Adding a product also requires a PREP_MINUTES entry in kitchen.py.
 
 ### Stage 4: API (Python 3.11 or newer)
 
@@ -26,6 +46,7 @@ Keep the terminal running and open http://127.0.0.1:8000/docs in a browser. Stop
 | GET / | Show the API greeting |
 | GET /menu | Read products and current stock |
 | GET /orders | Read saved orders |
+| GET /queue?stations=2 | Simulate a queue using the saved queued orders |
 | POST /orders | Validate, reserve stock and save an order |
 
 In `/docs`, expand GET /menu, choose Try it out, then Execute. Next expand POST /orders and submit:
@@ -70,7 +91,7 @@ Stock updated. Simulation only; no payment taken.
 - [x] Stage 2: look up products and calculate an order total; validate inputs.
 - [x] Stage 3: persist menu, stock and orders in SQLite; use transactions.
 - [x] Stage 4: expose ordering through a FastAPI API.
-- [ ] Stage 5: simulate kitchen scheduling and compare waiting times.
+- [x] Stage 5: simulate kitchen scheduling and compare waiting times.
 - [ ] Stage 6: document experiments, meaningful tests and a demonstration.
 
 Each stage will have its own commit and explanation. See [LEARNING.md](LEARNING.md) for the reasoning and exercises.
@@ -84,6 +105,8 @@ Stage 2: six automated tests passed, covering totals, quantity boundaries, inval
 Stage 3: seven additional database tests passed, including persistence across new connections, reinitialisation without resetting stock, rejected orders and rollback when saving fails. All 13 tests passed together. A separate-process demonstration verified stock and orders survive restarting Python.
 
 Stage 4: eight API tests passed for reads, saved orders, stock updates, errors, strict request validation, persistence and documentation. All 21 tests passed together after installing requirements.txt. Tests use temporary databases and do not change your demonstration stock.
+
+Stage 5: eight algorithm tests and two API tests were added; all 31 project tests passed. Verified sequential and parallel schedules, empty queues, completed-order filtering, station bounds, missing preparation times and simulations leaving inputs and database data unchanged. The standalone demonstration produced the comparison above.
 
 Run the tests from this folder:
 

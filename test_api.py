@@ -74,6 +74,25 @@ class APITests(unittest.TestCase):
         schema = self.client.get("/openapi.json").json()
         self.assertIn("post", schema["paths"]["/orders"])
 
+    def test_queue_calculates_without_database_changes(self):
+        self.client.post("/orders", json={"item_id": 1, "quantity": 2})
+        self.client.post("/orders", json={"item_id": 2, "quantity": 1})
+        self.client.post("/orders", json={"item_id": 3, "quantity": 1})
+        before_menu = self.client.get("/menu").json()
+        before_orders = self.client.get("/orders").json()
+        response = self.client.get("/queue?stations=2")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["all_ready_after_minutes"], 6)
+        self.assertEqual(response.json()["average_waiting_minutes"], 0.67)
+        self.assertEqual(self.client.get("/queue?stations=1").json()["all_ready_after_minutes"], 12)
+        self.assertEqual(self.client.get("/menu").json(), before_menu)
+        self.assertEqual(self.client.get("/orders").json(), before_orders)
+
+    def test_invalid_station_query_returns_422(self):
+        for stations in ["0", "11", "hello", "1.5"]:
+            with self.subTest(stations=stations):
+                self.assertEqual(self.client.get(f"/queue?stations={stations}").status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

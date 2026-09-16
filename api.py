@@ -1,9 +1,11 @@
-"""Stage 4: run with python -m uvicorn api:app --reload."""
+"""Stage 5: run with python -m uvicorn api:app --reload."""
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
+
+from kitchen import simulate_queue
 
 from database import (
     DATABASE_PATH, InsufficientStockError, ItemNotFoundError,
@@ -28,7 +30,7 @@ def create_app(database_path=DATABASE_PATH):
     application = FastAPI(
         title="Takeaway Ordering Simulator",
         description="Educational mock API using fictional data; no payments.",
-        version="0.4.0",
+        version="0.5.0",
         lifespan=lifespan,
     )
 
@@ -43,6 +45,13 @@ def create_app(database_path=DATABASE_PATH):
     @application.get("/orders")
     def orders_endpoint():
         return get_orders(database_path)
+
+    @application.get("/queue")
+    def queue_endpoint(stations: int = Query(default=2, ge=1, le=10)):
+        try:
+            return simulate_queue(get_orders(database_path), stations)
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
     @application.post("/orders", status_code=201)
     def order_endpoint(order: OrderRequest):
