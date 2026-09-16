@@ -1,4 +1,5 @@
 """Stage 7: python -m streamlit run website.py (start the API first)."""
+import os
 import streamlit as st
 from menu import format_price
 from web_client import APIError, request_api
@@ -6,6 +7,8 @@ from web_client import APIError, request_api
 st.set_page_config(page_title="Takeaway Kitchen", page_icon="🍔", layout="wide")
 st.title("🍔 Takeaway Kitchen")
 st.caption("A fictional ordering simulation · no payments or real deliveries")
+if os.environ.get("TAKEAWAY_TEMPORARY_DEMO") == "1":
+    st.info("Public demo: stock and orders are shared by visitors and reset when the service restarts. The free service may take a little time to wake up.")
 
 notice = st.session_state.pop("order_notice", None)
 if notice:

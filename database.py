@@ -1,5 +1,6 @@
 """Stage 3: persist fictional products, stock and orders in SQLite."""
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from ordering import validate_order_input
 
 
 # Keep the database beside this file, regardless of the terminal's folder.
-DATABASE_PATH = Path(__file__).resolve().with_name("restaurant.db")
+DATABASE_PATH = Path(os.environ.get("TAKEAWAY_DATABASE_PATH", str(Path(__file__).resolve().with_name("restaurant.db"))))
 INITIAL_STOCK = {1: 20, 2: 30, 3: 15}
 
 

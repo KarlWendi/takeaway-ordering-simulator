@@ -4,13 +4,15 @@ An educational Python project exploring food ordering, inventory and kitchen wai
 
 [![Python tests](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml/badge.svg)](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml)
 
-## Current stage: 7 — Python website
+## Current stage: 8 — preparing a public demo
 
 The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. A queue simulator now assigns queued orders to kitchen stations and reports simulated waiting and completion times. It reads a snapshot without changing stock or order status.
 
 Start with [DEMO.md](DEMO.md) for installation and a walkthrough, [RESULTS.md](RESULTS.md) for queue comparisons and assumptions, and [INTERVIEW.md](INTERVIEW.md) for explanation practice. [LEARNING.md](LEARNING.md) follows all six development stages. Developed with AI assistance as a guided learning project.
 
 ## Run
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for public hosting. The free demo uses temporary shared inventory, which resets on server restarts. A live link will be added after deployment is verified.
 
 ### Stage 7: website without handwritten HTML
 

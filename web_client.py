@@ -11,7 +11,8 @@ class APIError(Exception):
 
 def request_api(method, path, **kwargs):
     try:
-        response = httpx.request(method, API_URL + path, timeout=10, **kwargs)
+        # Free hosting can take over a minute to wake up. Reads can wait safely.
+        response = httpx.request(method, API_URL + path, timeout=90 if method == "GET" else 10, **kwargs)
     except httpx.RequestError as error:
         # Never retry POST automatically: the server may have saved the order.
         raise APIError("Could not reach the ordering service. If you submitted an order, check saved orders before trying again.") from error

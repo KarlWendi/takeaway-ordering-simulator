@@ -337,3 +337,9 @@ Streamlit generates a page from Python widgets. website.py calls web_client.py, 
 Streamlit reruns scripts after interactions. Only a submitted form sends POST. Refresh and station changes send GET and cannot deduct stock. Session state carries the confirmation through a rerun. Network failures are never automatically retried: the server may have saved the order before the connection failed.
 
 Trace the order button to the database transaction, then explain why the slider cannot place orders. Three interface tests use a temporary API database to check successful submission, refresh safety, insufficient stock and unavailable-service help.
+
+## Stage 8: public hosting
+
+A hosting provider runs Python on its servers, so a visitor needs only the website address. Streamlit and FastAPI are separate services. TAKEAWAY_API_URL connects them; localhost would point to the hosting server itself. The chosen free demo has shared fictional stock and temporary orders that reset on restarts. Local saved data is never uploaded.
+
+Render deploys from GitHub commits. GitHub Actions verifies tests; hosting builds and starts the servers. GET calls allow time for free services to wake up, while POST is never automatically retried. DEPLOYMENT.md explains the setup.
