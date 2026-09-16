@@ -2,9 +2,13 @@
 
 An educational Python project exploring food ordering, inventory and kitchen waiting times. Uses fictional data and is not affiliated with McDonald's or any other restaurant.
 
-## Current stage: 5 — kitchen queue simulation
+[![Python tests](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml/badge.svg)](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml)
+
+## Current stage: 6 — demonstration and portfolio documentation
 
 The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. A queue simulator now assigns queued orders to kitchen stations and reports simulated waiting and completion times. It reads a snapshot without changing stock or order status.
+
+Start with [DEMO.md](DEMO.md) for installation and a walkthrough, [RESULTS.md](RESULTS.md) for queue comparisons and assumptions, and [INTERVIEW.md](INTERVIEW.md) for explanation practice. [LEARNING.md](LEARNING.md) follows all six development stages. Developed with AI assistance as a guided learning project.
 
 ## Run
 
@@ -92,7 +96,7 @@ Stock updated. Simulation only; no payment taken.
 - [x] Stage 3: persist menu, stock and orders in SQLite; use transactions.
 - [x] Stage 4: expose ordering through a FastAPI API.
 - [x] Stage 5: simulate kitchen scheduling and compare waiting times.
-- [ ] Stage 6: document experiments, meaningful tests and a demonstration.
+- [x] Stage 6: document experiments, meaningful tests and a demonstration.
 
 Each stage will have its own commit and explanation. See [LEARNING.md](LEARNING.md) for the reasoning and exercises.
 
@@ -107,6 +111,8 @@ Stage 3: seven additional database tests passed, including persistence across ne
 Stage 4: eight API tests passed for reads, saved orders, stock updates, errors, strict request validation, persistence and documentation. All 21 tests passed together after installing requirements.txt. Tests use temporary databases and do not change your demonstration stock.
 
 Stage 5: eight algorithm tests and two API tests were added; all 31 project tests passed. Verified sequential and parallel schedules, empty queues, completed-order filtering, station bounds, missing preparation times and simulations leaving inputs and database data unchanged. The standalone demonstration produced the comparison above.
+
+Stage 6 adds a demo guide, recorded results, explanation exercises and a GitHub Actions workflow for Python 3.12 and 3.14. The Actions tab and badge show the current remote test status. The workflow installs requirements, runs all tests and runs the fixed queue example. Tests check temporary databases rather than the demonstration data.
 
 Run the tests from this folder:
 

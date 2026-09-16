@@ -311,3 +311,21 @@ A scheduling algorithm turns assumptions about work and capacity into predicted 
 2. Explain why three stations do not finish every order sooner than two in our example.
 3. Change DEMO_ORDERS quantities and predict which station gets the next order.
 4. Explain why repeatedly reading GET /queue does not reduce stock or mark orders completed.
+
+## Stage 6 — make the project demonstrable and explainable
+
+### Deliverables
+
+DEMO.md lets another person install and demonstrate the project. RESULTS.md records a reproducible workload and the observed saved-order snapshot, separating the two and spelling out assumptions. INTERVIEW.md provides explanation prompts and exercises. The README links them and displays test status.
+
+### Automatic checks on GitHub
+
+.github/workflows/tests.yml is a YAML configuration file, not Python code. It tells GitHub Actions when and how to run checks. A push uploads a commit; a pull request proposes changes for review; workflow_dispatch allows a manual run. Our workflow runs on all three triggers.
+
+A job runs on a fresh GitHub-hosted Ubuntu computer. checkout retrieves the repository; setup-python selects Python. The version matrix runs the same job on Python 3.12 and 3.14. Pip installs the requirements; unittest discovers and runs test_*.py files; queue_demo.py checks the demonstration. Read-only contents permission is enough. Nothing deploys a site or changes your local database.
+
+A green check means those commands passed in the recorded environments. A red check means open the run log and find the failing step. Tests reduce uncertainty but do not prove absence of every bug. Changes made only in a local editor do not reach GitHub or trigger this workflow until committed and pushed.
+
+### Completion and understanding
+
+The original implementation requirements are now represented by the mock API, SQLite inventory/orders and a queue algorithm. The portfolio contains the runnable source, development history, tests, demonstration and limitations. Your learning continues through practising explanations and making changes yourself. Use INTERVIEW.md to check your understanding, and acknowledge AI assistance accurately.
