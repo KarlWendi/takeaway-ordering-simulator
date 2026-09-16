@@ -11,13 +11,17 @@ def find_item(item_id):
     raise ValueError("Menu item not found.")
 
 
-def calculate_order(item_id, quantity):
-    """Return order details without changing the menu or saving an order."""
+def validate_order_input(item_id, quantity):
+    """Shared input rules for the quote and database stages."""
     if type(item_id) is not int or item_id <= 0:
         raise ValueError("Product ID must be a positive whole number.")
     if type(quantity) is not int or not 1 <= quantity <= 50:
         raise ValueError("Quantity must be a whole number from 1 to 50.")
 
+
+def calculate_order(item_id, quantity):
+    """Return order details without changing the menu or saving an order."""
+    validate_order_input(item_id, quantity)
     item = find_item(item_id)
     return {
         "item_id": item["id"],

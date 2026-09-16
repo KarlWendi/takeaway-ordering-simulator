@@ -87,3 +87,77 @@ Turn user input into validated data before doing business calculations. Keep cal
 ### GitHub milestone
 
 Commit: `Stage 2: add validated order calculation and tests`. View its changes to see new ordering and test files, an updated roadmap and this explanation. Stage 1 remains accessible in commit history.
+
+## Stage 3 — save orders and track stock with SQLite
+
+### Files to create in your editor
+
+Keep menu.py and ordering.py. Add database.py, restaurant.py and test_database.py in the same folder. Update ordering.py with the small shared-validation refactor in the Stage 3 commit. Run `python restaurant.py`. SQLite is included in Python: do not install a package called sqlite3. restaurant.db appears automatically; it is a data file, not Python code to paste into an editor.
+
+### Business purpose
+
+Stage 2 calculated a quote and forgot it when the program ended. Stage 3 saves the order and reserves finished-product stock. It must reject unavailable products and must never deduct stock without saving the corresponding order.
+
+### Database vocabulary
+
+- SQLite is the database management system. sqlite3 is Python's interface to it.
+- A database file stores data on disk; ours is restaurant.db.
+- A table is a collection of records with named columns. A row represents one product or order.
+- A primary key uniquely identifies a row. SQLite generates integer order IDs when we omit them during insertion.
+- A foreign key links orders.item_id to products.id. PRAGMA foreign_keys enables enforcement on each connection.
+- SQL is the language we use to query and change the database.
+- A connection is the program's access to the database; close it when finished.
+- A transaction groups changes into one unit. Commit keeps successful changes; rollback undoes changes when an error escapes the transaction block.
+
+### Our tables
+
+products: id, name, price_pence, stock.
+
+orders: id, item_id, quantity, total_pence, status, created_at.
+
+The total is saved at the time of ordering. Later price changes should not alter what an earlier order cost. The displayed name is currently joined from products, so a later product rename would change the name shown for older orders. Status defaults to queued and the timestamp uses SQLite's UTC current time.
+
+### Read database.py in sections
+
+1. Imports: sqlite3 opens the database; Path constructs a file path. We reuse MENU and extract validate_order_input from Stage 2 so both quote and database stages use the same rules.
+2. DATABASE_PATH resolves restaurant.db beside database.py. Running from another terminal folder will still use the same database.
+3. connect(): open the file, configure named-column row access and enforce foreign keys. sqlite3.Row allows `row["stock"]`; dict(row) converts the result to ordinary data for the rest of the program.
+4. initialise_database(): CREATE TABLE IF NOT EXISTS creates each table on first run. NOT NULL requires a value; CHECK rejects invalid stored values. ON CONFLICT(id) DO NOTHING avoids overwriting a product that already exists. This preserves stock on restart. New products missing from INITIAL_STOCK start at zero stock.
+5. get_menu(): SELECT reads records. ORDER BY id puts them in a predictable order. fetchall() retrieves all result rows.
+6. place_order(): validate parameters, then UPDATE a matching product only if stock is sufficient. SET stock = stock - ? deducts the requested amount. rowcount tells us whether a product row was updated. Zero updated rows means either no such product or insufficient stock; a SELECT distinguishes the two.
+7. The SQL placeholders `?` receive values separately in a tuple. This avoids building SQL instructions from user input. `(item_id,)` is a one-element tuple; the comma matters.
+8. After reserving stock, read the product's price and INSERT an order. lastrowid gives the newly generated order ID.
+9. `with connection:` commits when the block succeeds or rolls back when an exception leaves it. It does not close the connection. `finally` closes the connection whether the operation succeeded or failed. We return success after the transaction has committed.
+10. get_orders(): JOIN links orders to products using their shared product ID so we can display the product name alongside each saved order.
+
+### Read restaurant.py
+
+This is the terminal interface. It initialises the database, shows stock and saved orders, converts typed input and calls place_order. Pressing Enter at the product prompt exits. Earlier stages remain independently runnable. This separation means a later API can call database functions without depending on terminal input or output.
+
+### Trace two burgers
+
+Start: burger stock 20, no orders → validate ID 1 and quantity 2 → reserve two burgers → stock becomes 18 inside the transaction → read price 399 → insert order total 798 → commit → display order ID and £7.98. Close and restart Python: stock is still 18 and the order still exists.
+
+### Why a transaction matters
+
+Suppose stock decreases successfully but inserting the order fails. Without a transaction, those two units could disappear from available stock with no order explaining why. With our transaction, the failed insert triggers rollback, restoring stock. A test deliberately forces that failure to verify the behaviour. The conditional stock UPDATE also makes availability checking and reservation a single database operation.
+
+### Verification
+
+Seven database tests use fresh temporary databases so they do not change your demonstration stock. They cover saved totals and stock, preservation on reinitialisation, unknown IDs, invalid quantities, insufficient stock, ordering the last units and rollback after a forced insert failure. Together with Stage 2, all 13 tests passed. A separate-process check placed two burgers, reopened the same database in another Python process and verified stock 18 and one saved order.
+
+### Try it yourself
+
+1. Run restaurant.py and order product 1, quantity 2. On a fresh database you get order #1 and £7.98.
+2. Run it again: stock is 18 and the saved order is listed. Press Enter to exit.
+3. Run again and request 19 burgers: it should reject the order because only 18 remain.
+4. Run again: stock and order count should be unchanged by that rejection.
+5. Explain what would go wrong if we reset stock to 20 every startup.
+
+### Main takeaway
+
+Use a database for information that must survive a restart, and use a transaction when several changes must succeed together. A saved order and its stock deduction represent one business action.
+
+### GitHub milestone
+
+Commit: `Stage 3: persist orders and stock with SQLite`. Commit the Python source, tests and explanations. Ignore restaurant.db: it is generated local data and each reader can create their own fresh database by running the program.
