@@ -4,13 +4,23 @@ An educational Python project exploring food ordering, inventory and kitchen wai
 
 [![Python tests](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml/badge.svg)](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml)
 
-## Current stage: 6 — demonstration and portfolio documentation
+## Current stage: 7 — Python website
 
 The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. A queue simulator now assigns queued orders to kitchen stations and reports simulated waiting and completion times. It reads a snapshot without changing stock or order status.
 
 Start with [DEMO.md](DEMO.md) for installation and a walkthrough, [RESULTS.md](RESULTS.md) for queue comparisons and assumptions, and [INTERVIEW.md](INTERVIEW.md) for explanation practice. [LEARNING.md](LEARNING.md) follows all six development stages. Developed with AI assistance as a guided learning project.
 
 ## Run
+
+### Stage 7: website without handwritten HTML
+
+See [WEBSITE.md](WEBSITE.md) for setup and the request flow. Install requirements, start FastAPI in one terminal, then run this in another:
+
+```text
+python -m streamlit run website.py --server.address 127.0.0.1
+```
+
+Open http://127.0.0.1:8501 for the menu, order form, saved orders and kitchen estimates. Both servers must remain running. The website calls the API with HTTPX and never edits SQLite directly. GitHub stores the code; the website runs locally.
 
 ### Stage 5: compare kitchen stations
 
@@ -97,6 +107,7 @@ Stock updated. Simulation only; no payment taken.
 - [x] Stage 4: expose ordering through a FastAPI API.
 - [x] Stage 5: simulate kitchen scheduling and compare waiting times.
 - [x] Stage 6: document experiments, meaningful tests and a demonstration.
+- [x] Stage 7: Streamlit website, API client and interface tests.
 
 Each stage will have its own commit and explanation. See [LEARNING.md](LEARNING.md) for the reasoning and exercises.
 

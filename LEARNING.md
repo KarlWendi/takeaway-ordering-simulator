@@ -329,3 +329,11 @@ A green check means those commands passed in the recorded environments. A red ch
 ### Completion and understanding
 
 The original implementation requirements are now represented by the mock API, SQLite inventory/orders and a queue algorithm. The portfolio contains the runnable source, development history, tests, demonstration and limitations. Your learning continues through practising explanations and making changes yourself. Use INTERVIEW.md to check your understanding, and acknowledge AI assistance accurately.
+
+## Stage 7: Python website
+
+Streamlit generates a page from Python widgets. website.py calls web_client.py, which sends HTTP requests to FastAPI. The API still validates input and updates SQLite in a transaction. WEBSITE.md explains setup and each step.
+
+Streamlit reruns scripts after interactions. Only a submitted form sends POST. Refresh and station changes send GET and cannot deduct stock. Session state carries the confirmation through a rerun. Network failures are never automatically retried: the server may have saved the order before the connection failed.
+
+Trace the order button to the database transaction, then explain why the slider cannot place orders. Three interface tests use a temporary API database to check successful submission, refresh safety, insufficient stock and unavailable-service help.
