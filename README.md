@@ -2,11 +2,45 @@
 
 An educational Python project exploring food ordering, inventory and kitchen waiting times. Uses fictional data and is not affiliated with McDonald's or any other restaurant.
 
-## Current stage: 3 — persistent orders and inventory
+## Current stage: 4 — mock ordering API
 
-Displays the menu with current stock, saves orders in SQLite and reduces stock in the same transaction. Rejects missing products, invalid quantities and insufficient stock. Orders and stock survive a restart. No external packages are needed; sqlite3 is included with Python. An API and kitchen scheduling are planned, not implemented yet.
+The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. The API accepts JSON and returns HTTP status codes for successful requests, missing products, insufficient stock and invalid data. Kitchen scheduling is planned, not implemented yet.
 
 ## Run
+
+### Stage 4: API (Python 3.11 or newer)
+
+Open the project folder in VS Code, then open its terminal. Install packages with the same Python interpreter you will use to start the server:
+
+```text
+python -m pip install -r requirements.txt
+python -m uvicorn api:app --reload
+```
+
+On Windows, substitute `py` for `python` if needed. If VS Code uses a specific python.exe, select that interpreter and use its terminal, or replace `python` with its full executable path. In PowerShell a quoted executable path needs `&` before it. Do not install sqlite3 separately.
+
+Keep the terminal running and open http://127.0.0.1:8000/docs in a browser. Stop the server with Ctrl+C. `python api.py` alone defines the app but does not start a web server.
+
+| Endpoint | Purpose |
+| --- | --- |
+| GET / | Show the API greeting |
+| GET /menu | Read products and current stock |
+| GET /orders | Read saved orders |
+| POST /orders | Validate, reserve stock and save an order |
+
+In `/docs`, expand GET /menu, choose Try it out, then Execute. Next expand POST /orders and submit:
+
+```json
+{"item_id": 1, "quantity": 2}
+```
+
+Success returns 201 and an order dictionary with total_pence 798. GET /menu should show stock reduced by two; GET /orders should list the saved order. Every successful POST creates a new order and deducts stock again, so clicking Execute twice places two orders. The API uses the same restaurant.db as the Stage 3 terminal on your computer; your existing data is preserved.
+
+Status codes: 200 = read succeeded; 201 = order created; 404 = product missing; 409 = insufficient stock; 422 = request validation failed. Quoted numbers, booleans, fractions, missing fields and unexpected extra fields are rejected. Use numbers such as `2`, not strings such as `"2"`.
+
+The requirements file pins the three directly used packages to versions tested for this stage. Their supporting dependencies are resolved by pip. HTTPX is needed for API tests, rather than for serving the API itself.
+
+### Stage 3: terminal (no external packages needed)
 
 With Python 3 installed, open a terminal in this folder:
 
@@ -35,7 +69,7 @@ Stock updated. Simulation only; no payment taken.
 - [x] Stage 1: menu, lists, dictionaries, functions and money formatting.
 - [x] Stage 2: look up products and calculate an order total; validate inputs.
 - [x] Stage 3: persist menu, stock and orders in SQLite; use transactions.
-- [ ] Stage 4: expose ordering through a FastAPI API.
+- [x] Stage 4: expose ordering through a FastAPI API.
 - [ ] Stage 5: simulate kitchen scheduling and compare waiting times.
 - [ ] Stage 6: document experiments, meaningful tests and a demonstration.
 
@@ -49,6 +83,8 @@ Stage 2: six automated tests passed, covering totals, quantity boundaries, inval
 
 Stage 3: seven additional database tests passed, including persistence across new connections, reinitialisation without resetting stock, rejected orders and rollback when saving fails. All 13 tests passed together. A separate-process demonstration verified stock and orders survive restarting Python.
 
+Stage 4: eight API tests passed for reads, saved orders, stock updates, errors, strict request validation, persistence and documentation. All 21 tests passed together after installing requirements.txt. Tests use temporary databases and do not change your demonstration stock.
+
 Run the tests from this folder:
 
 ```text
@@ -57,7 +93,7 @@ python -m unittest -v
 
 ## Limitations
 
-There is no mixed-product basket, ingredient inventory, stock replenishment command, payment processing or real restaurant integration. Stock counts finished products. All saved orders remain queued until a later stage adds status changes. The maximum quantity of 50 is an invented demonstration rule.
+There is no mixed-product basket, ingredient inventory, stock replenishment command, payment processing or real restaurant integration. Stock counts finished products. All saved orders remain queued until a later stage adds status changes. The maximum quantity of 50 is an invented demonstration rule. The API is a local educational demo without authentication or duplicate-request protection; it is not a production ordering service. GitHub hosts the source code, not a running Python API.
 
 ## Database and files
 

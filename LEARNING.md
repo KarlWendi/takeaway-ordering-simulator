@@ -161,3 +161,71 @@ Use a database for information that must survive a restart, and use a transactio
 ### GitHub milestone
 
 Commit: `Stage 3: persist orders and stock with SQLite`. Commit the Python source, tests and explanations. Ignore restaurant.db: it is generated local data and each reader can create their own fresh database by running the program.
+
+## Stage 4 — expose the system through a mock API
+
+### Files for your editor
+
+Add api.py, requirements.txt and test_api.py. Update database.py to the latest version; it now defines ItemNotFoundError and InsufficientStockError. Keep menu.py, ordering.py and restaurant.py. All Python files belong in the same folder. You do not need to replace restaurant.db.
+
+Install with `python -m pip install -r requirements.txt` and start with `python -m uvicorn api:app --reload`. Run from your project folder, not VS Code's installation folder. Open http://127.0.0.1:8000/docs. VS Code's Run Python File button does not start this API server by itself. See README.md for full instructions.
+
+### Business purpose and vocabulary
+
+An API (application programming interface) provides an agreed way for another program to request operations. Our mock API simulates a takeaway backend using fictional data. A future kiosk or website could call it; this stage does not build that customer website.
+
+- Client: the program sending a request; the documentation page can act as a testing client.
+- Server: the running program receiving requests. Uvicorn runs our FastAPI application.
+- HTTP: the protocol used for these web requests and responses.
+- Endpoint: an operation identified by method and path, such as POST /orders. GET /orders is a different operation on the same path.
+- JSON: text encoding structured data. The request body `{"item_id": 1, "quantity": 2}` carries the order input.
+- Response: the result sent back, including a status code and usually a JSON body.
+- Localhost: 127.0.0.1 means your own computer. 8000 is the port Uvicorn listens on by default. The server must remain running for the address to work.
+
+### Read api.py in sections
+
+1. Imports load FastAPI, its HTTPException type, Pydantic validation tools and our existing database operations.
+2. OrderRequest is a class describing the required request fields. It inherits BaseModel, so Pydantic can parse and validate incoming data. `item_id: int` is a type annotation, describing the intended type. Here the validation library enforces it.
+3. Field(strict=True, gt=0) requires a real integer greater than zero. Quantity must be 1–50. Strict mode rejects "2", true and fractions rather than silently converting them. ConfigDict(extra="forbid") rejects unexpected fields.
+4. create_app(database_path) builds an application using a chosen database. The normal app uses restaurant.db; tests supply a temporary path so they do not consume your stock. The nested functions remember the path supplied when the application was created.
+5. lifespan initialises the database once when the server starts. `yield` separates startup from shutdown. asynccontextmanager is the framework-supported context-manager pattern; ordinary database endpoints remain normal `def` functions. You do not need to rewrite all your code as asynchronous code.
+6. FastAPI(...) creates the application and gives the documentation a title and version.
+7. A decorator such as `@application.get("/menu")` registers the function below it as the handler for that endpoint. FastAPI calls it when a matching request arrives. Its returned Python list/dictionary is converted into a JSON response.
+8. POST /orders receives an OrderRequest. It calls place_order with its validated values. The normal response code is 201, meaning a record was created.
+9. The database's specific error types are subclasses of ValueError. Existing terminal code still catches them, while the API can distinguish product missing (404) from insufficient stock (409) without comparing message text. HTTPException sends the appropriate error response. `from error` preserves the original exception as the cause for debugging.
+10. `app = create_app()` makes the application Uvicorn loads. `api:app` in the start command means module api.py, object app. `--reload` restarts the development server when code files change. Importing or running api.py by itself does not start Uvicorn.
+
+### Trace a web order
+
+Client submits POST /orders with JSON → FastAPI validates OrderRequest → handler calls place_order → SQLite reserves stock and saves order in one transaction → handler returns order dictionary → FastAPI sends JSON with status 201. Invalid request fields return 422 before database changes. A valid request for a missing product returns 404. A valid request exceeding current stock returns 409.
+
+### Test through the documentation page
+
+1. Start the server and open /docs.
+2. GET /menu → Try it out → Execute. Note burger stock.
+3. POST /orders → Try it out → submit item_id 1, quantity 2 → Execute.
+4. Read the response: code 201, order_id and total_pence 798.
+5. GET /menu again: stock is two lower. GET /orders: the new order appears.
+6. Submit quantity 0: code 422 and no saved order.
+7. Submit item_id 999, quantity 1: code 404 and no saved order.
+8. Stop with Ctrl+C. Run restaurant.py: the API-created order appears because both interfaces use the same local database.
+
+Every successful POST creates a new order. Repeating Execute is another purchase simulation; the code does not yet recognise duplicate submissions. GET requests only read data.
+
+### Verification
+
+Eight API tests use TestClient, which simulates HTTP requests without a separate network server. Its context manager runs startup so each temporary database is initialised. Tests verify responses and actual database effects, including rejected requests leaving stock and orders unchanged. All 21 project tests passed. /docs and its OpenAPI schema are also checked.
+
+### Main takeaway
+
+The same business logic can serve different interfaces. The terminal accepts typed input; the API accepts web requests. Both use the same validated database operations, so stock and order rules stay consistent.
+
+### GitHub milestone and limits
+
+Commit: `Stage 4: add mock ordering API and HTTP tests`. The repository contains runnable code, install instructions and this guide. Uploading Python to GitHub does not run a server. This stage is a local demo without authentication, payments, a customer website or production deployment.
+
+### Official references
+
+- Request bodies: https://fastapi.tiangolo.com/tutorial/body/
+- API testing: https://fastapi.tiangolo.com/tutorial/testing/
+- Application startup: https://fastapi.tiangolo.com/advanced/events/

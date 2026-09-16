@@ -12,6 +12,14 @@ DATABASE_PATH = Path(__file__).resolve().with_name("restaurant.db")
 INITIAL_STOCK = {1: 20, 2: 30, 3: 15}
 
 
+class ItemNotFoundError(ValueError):
+    """Requested product does not exist."""
+
+
+class InsufficientStockError(ValueError):
+    """Requested quantity exceeds available stock."""
+
+
 def connect(database_path=DATABASE_PATH):
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
@@ -79,8 +87,8 @@ def place_order(item_id, quantity, database_path=DATABASE_PATH):
                     "SELECT id FROM products WHERE id = ?", (item_id,)
                 ).fetchone()
                 if item is None:
-                    raise ValueError("Menu item not found.")
-                raise ValueError("Insufficient stock.")
+                    raise ItemNotFoundError("Menu item not found.")
+                raise InsufficientStockError("Insufficient stock.")
 
             item = connection.execute(
                 "SELECT * FROM products WHERE id = ?", (item_id,)
