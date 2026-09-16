@@ -1,5 +1,13 @@
 # Stage 8: publish a public demo
 
+Live website: https://takeaway-ordering-demo.onrender.com/
+
+API address: https://takeaway-simulator-api.onrender.com/
+
+Both services use the Free compute plan. TAKEAWAY_API_URL connects the website to the API; TAKEAWAY_TEMPORARY_DEMO=1 displays the shared temporary-data notice. Python 3.12.12 is configured for both services. Existing local data was not uploaded. All 34 automated tests passed before deployment.
+
+On 16 September 2026, the public website loaded initial stock and accepted a two-burger order with a £7.98 confirmation and stock changing from 20 to 18.
+
 The website and API need running Python servers. GitHub Pages only serves static files and cannot run these servers. The public website link belongs in the README after it has been deployed and checked.
 
 ## Two services, one visitor link

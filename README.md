@@ -4,7 +4,9 @@ An educational Python project exploring food ordering, inventory and kitchen wai
 
 [![Python tests](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml/badge.svg)](https://github.com/KarlWendi/takeaway-ordering-simulator/actions/workflows/tests.yml)
 
-## Current stage: 8 — preparing a public demo
+## Current stage: 8 — public website
+
+**[Try the live demo](https://takeaway-ordering-demo.onrender.com/)** — no Python installation needed. Free hosting may take about a minute to wake up. Shared fictional stock and orders reset when the service restarts.
 
 The terminal and FastAPI web API share SQLite menu, stock and orders. Both reserve stock and save each order in one transaction. A queue simulator now assigns queued orders to kitchen stations and reports simulated waiting and completion times. It reads a snapshot without changing stock or order status.
 
@@ -12,7 +14,7 @@ Start with [DEMO.md](DEMO.md) for installation and a walkthrough, [RESULTS.md](R
 
 ## Run
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for public hosting. The free demo uses temporary shared inventory, which resets on server restarts. A live link will be added after deployment is verified.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for public hosting. The free demo uses temporary shared inventory, which resets on server restarts.
 
 ### Stage 7: website without handwritten HTML
 
@@ -110,6 +112,7 @@ Stock updated. Simulation only; no payment taken.
 - [x] Stage 5: simulate kitchen scheduling and compare waiting times.
 - [x] Stage 6: document experiments, meaningful tests and a demonstration.
 - [x] Stage 7: Streamlit website, API client and interface tests.
+- [x] Stage 8: public free demo and hosting documentation.
 
 Each stage will have its own commit and explanation. See [LEARNING.md](LEARNING.md) for the reasoning and exercises.
 
