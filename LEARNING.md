@@ -343,3 +343,7 @@ Trace the order button to the database transaction, then explain why the slider 
 A hosting provider runs Python on its servers, so a visitor needs only the website address. Streamlit and FastAPI are separate services. TAKEAWAY_API_URL connects them; localhost would point to the hosting server itself. The chosen free demo has shared fictional stock and temporary orders that reset on restarts. Local saved data is never uploaded.
 
 Render deploys from GitHub commits. GitHub Actions verifies tests; hosting builds and starts the servers. GET calls allow time for free services to wake up, while POST is never automatically retried. DEPLOYMENT.md explains the setup.
+
+## Expanded menu
+
+The catalogue now has 12 products. Each new ID has a price in menu.py, initial stock in database.py and an invented preparation time in kitchen.py. New rows are seeded on API startup without overwriting existing local stock or orders. The website uses rows of three cards so a larger menu remains readable. Free public redeployments reset demo data as described above.

@@ -23,11 +23,12 @@ except APIError as error:
     st.stop()
 
 st.subheader("Today's menu")
-for column, item in zip(st.columns(max(1, len(menu))), menu):
-    with column:
-        st.subheader(item["name"])
-        st.metric("Price", format_price(item["price_pence"]))
-        st.caption(f"{item['stock']} available" if item["stock"] else "Sold out")
+for row_start in range(0, len(menu), 3):
+    for column, item in zip(st.columns(3), menu[row_start:row_start + 3]):
+        with column:
+            st.subheader(item["name"])
+            st.metric("Price", format_price(item["price_pence"]))
+            st.caption(f"{item['stock']} available" if item["stock"] else "Sold out")
 
 available = [item for item in menu if item["stock"] > 0]
 st.subheader("Place an order")

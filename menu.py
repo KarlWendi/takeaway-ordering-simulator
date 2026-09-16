@@ -4,6 +4,15 @@ MENU = [
     {"id": 1, "name": "Burger", "price_pence": 399},
     {"id": 2, "name": "Fries", "price_pence": 199},
     {"id": 3, "name": "Wrap", "price_pence": 449},
+    {"id": 4, "name": "Cheeseburger", "price_pence": 449},
+    {"id": 5, "name": "Chicken Burger", "price_pence": 499},
+    {"id": 6, "name": "Veggie Burger", "price_pence": 479},
+    {"id": 7, "name": "Chicken Nuggets", "price_pence": 349},
+    {"id": 8, "name": "Onion Rings", "price_pence": 249},
+    {"id": 9, "name": "Side Salad", "price_pence": 299},
+    {"id": 10, "name": "Cola", "price_pence": 179},
+    {"id": 11, "name": "Bottled Water", "price_pence": 129},
+    {"id": 12, "name": "Chocolate Milkshake", "price_pence": 329},
 ]
 
 

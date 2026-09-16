@@ -1,7 +1,10 @@
 """Stage 5: schedule a snapshot of queued orders without changing them."""
 
 # Invented per-unit times: burger 3 minutes, fries 2, wrap 4.
-PREP_MINUTES = {1: 3, 2: 2, 3: 4}
+PREP_MINUTES = {
+    1: 3, 2: 2, 3: 4, 4: 3, 5: 5, 6: 4,
+    7: 4, 8: 3, 9: 2, 10: 1, 11: 1, 12: 2,
+}
 
 
 def simulate_queue(orders, stations=2):

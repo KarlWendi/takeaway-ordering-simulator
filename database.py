@@ -10,7 +10,10 @@ from ordering import validate_order_input
 
 # Keep the database beside this file, regardless of the terminal's folder.
 DATABASE_PATH = Path(os.environ.get("TAKEAWAY_DATABASE_PATH", str(Path(__file__).resolve().with_name("restaurant.db"))))
-INITIAL_STOCK = {1: 20, 2: 30, 3: 15}
+INITIAL_STOCK = {
+    1: 20, 2: 30, 3: 15, 4: 20, 5: 20, 6: 15,
+    7: 25, 8: 25, 9: 15, 10: 40, 11: 40, 12: 20,
+}
 
 
 class ItemNotFoundError(ValueError):
