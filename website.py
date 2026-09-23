@@ -110,17 +110,30 @@ else:
 
 st.divider()
 orders_tab, queue_tab = st.tabs(["Saved orders", "Kitchen estimates"])
-with orders_tab:
+
+
+@st.fragment(run_every="5s")
+def show_orders():
+    """Poll the API so elapsed preparation timers become ready automatically."""
     try:
         orders = request_api("GET", "/orders")
         if orders:
-            st.dataframe([{"Order": order["id"], "Food": order["name"], "Quantity": order["quantity"], "Total": format_price(order["total_pence"]), "Status": order["status"]} for order in orders], hide_index=True, width="stretch")
+            st.dataframe([{
+                "Order": order["id"],
+                "Food": order["name"],
+                "Quantity": order["quantity"],
+                "Total": format_price(order["total_pence"]),
+                "Status": order["status"],
+                "Estimated ready (UTC)": order.get("estimated_ready_at") or "—",
+            } for order in orders], hide_index=True, width="stretch")
 
             st.subheader("Staff order controls")
-            st.caption("Advance each order through the kitchen one stage at a time.")
+            st.caption(
+                "Start preparation manually. The timer changes preparing to "
+                "ready automatically; collection is confirmed manually."
+            )
             next_status = {
                 "queued": "preparing",
-                "preparing": "ready",
                 "ready": "collected",
             }
             active_orders = [order for order in orders if order["status"] in next_status]
@@ -148,6 +161,11 @@ with orders_tab:
             st.info("No saved orders yet.")
     except APIError as error:
         st.error(str(error))
+
+
+with orders_tab:
+    show_orders()
+
 with queue_tab:
     stations = st.slider("Kitchen stations", min_value=1, max_value=10, value=2)
     st.caption("Recalculated from minute zero for all queued orders; these are invented estimates, not a live countdown.")

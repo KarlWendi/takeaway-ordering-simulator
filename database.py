@@ -1,11 +1,13 @@
 # A simple database module for a takeaway ordering system, providing functions to initialise the database, 
 # retrieve the menu, place orders, and retrieve all orders, with error handling for item not found and insufficient stock scenarios.
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from menu import MENU
 from ordering import validate_order_input
 from order_status import validate_status_change
+from kitchen import PREP_MINUTES
 
 
 # Keep the database beside this file, regardless of the terminal's folder.
@@ -63,8 +65,29 @@ def initialise_database(database_path=DATABASE_PATH):
                     id INTEGER PRIMARY KEY,
                     total_pence INTEGER NOT NULL CHECK(total_pence >= 0),
                     status TEXT NOT NULL DEFAULT 'queued',
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    preparation_started_at TEXT,
+                    estimated_ready_at TEXT,
+                    status_updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
+            """)
+            current_order_columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(orders)"
+                ).fetchall()
+            }
+            for column_name, definition in {
+                "preparation_started_at": "TEXT",
+                "estimated_ready_at": "TEXT",
+                "status_updated_at": "TEXT",
+            }.items():
+                if column_name not in current_order_columns:
+                    connection.execute(
+                        f"ALTER TABLE orders ADD COLUMN {column_name} {definition}"
+                    )
+            connection.execute("""
+                UPDATE orders
+                SET status_updated_at = COALESCE(status_updated_at, created_at)
             """)
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS order_items (
@@ -205,6 +228,8 @@ def checkout(items, database_path=DATABASE_PATH):
 def get_orders(database_path=DATABASE_PATH):
     connection = connect(database_path)
     try:
+        with connection:
+            _mark_elapsed_orders_ready(connection)
         rows = connection.execute(
             "SELECT * FROM orders ORDER BY id"
         ).fetchall()
@@ -241,6 +266,7 @@ def update_order_status(order_id, new_status, database_path=DATABASE_PATH):
             # Prevent another writer changing the order during validation.
             connection.execute("BEGIN IMMEDIATE")
 
+            _mark_elapsed_orders_ready(connection)
             order = connection.execute(
                 "SELECT status FROM orders WHERE id = ?",
                 (order_id,),
@@ -251,13 +277,59 @@ def update_order_status(order_id, new_status, database_path=DATABASE_PATH):
 
             validate_status_change(order["status"], new_status)
 
-            connection.execute(
-                "UPDATE orders SET status = ? WHERE id = ?",
-                (new_status, order_id),
-            )
+            if new_status == "preparing":
+                item_rows = connection.execute("""
+                    SELECT item_id, quantity FROM order_items
+                    WHERE order_id = ?
+                """, (order_id,)).fetchall()
+                preparation_minutes = 0
+                for item in item_rows:
+                    if item["item_id"] not in PREP_MINUTES:
+                        raise ValueError(
+                            f"No preparation time configured for product {item['item_id']}."
+                        )
+                    preparation_minutes += (
+                        PREP_MINUTES[item["item_id"]] * item["quantity"]
+                    )
+                started_at = datetime.now(timezone.utc).replace(microsecond=0)
+                ready_at = started_at + timedelta(minutes=preparation_minutes)
+                connection.execute("""
+                    UPDATE orders
+                    SET status = ?, preparation_started_at = ?,
+                        estimated_ready_at = ?, status_updated_at = ?
+                    WHERE id = ?
+                """, (
+                    new_status,
+                    _database_timestamp(started_at),
+                    _database_timestamp(ready_at),
+                    _database_timestamp(started_at),
+                    order_id,
+                ))
+            else:
+                connection.execute("""
+                    UPDATE orders
+                    SET status = ?, status_updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (new_status, order_id))
 
         return {"order_id": order_id, "status": new_status}
 
     finally:
         connection.close()
+
+
+def _database_timestamp(value):
+    """Store UTC in SQLite's sortable timestamp format."""
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _mark_elapsed_orders_ready(connection):
+    """Make elapsed preparation timers ready during the next API poll."""
+    connection.execute("""
+        UPDATE orders
+        SET status = 'ready', status_updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'preparing'
+          AND estimated_ready_at IS NOT NULL
+          AND estimated_ready_at <= CURRENT_TIMESTAMP
+    """)
         
