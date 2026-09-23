@@ -29,6 +29,14 @@ class WebsiteTests(unittest.TestCase):
         self.app.number_input[0].set_value(2)
         self.app.button[1].click().run()
         self.assertFalse(self.app.exception)
+        self.assertEqual(self.client.get('/menu').json()[0]['stock'], 20)
+
+        checkout_button = next(
+            button for button in self.app.button
+            if button.label == 'Checkout'
+        )
+        checkout_button.click().run()
+
         self.assertIn('£7.98', self.app.success[0].value)
         self.assertEqual(self.client.get('/menu').json()[0]['stock'], 18)
         self.app.button[0].click().run()
@@ -39,9 +47,54 @@ class WebsiteTests(unittest.TestCase):
         self.app.number_input[0].set_value(21)
         self.app.button[1].click().run()
         self.assertFalse(self.app.exception)
-        self.assertEqual(self.app.error[0].value, 'Insufficient stock.')
+        self.assertEqual(
+            self.app.error[0].value,
+            'Only 20 × Burger are currently available.',
+        )
         self.assertEqual(self.client.get('/orders').json(), [])
         self.assertEqual(self.client.get('/menu').json()[0]['stock'], 20)
+
+    def test_staff_can_advance_order_status(self):
+        self.app.button[1].click().run()
+        checkout_button = next(
+            button for button in self.app.button
+            if button.label == 'Checkout'
+        )
+        checkout_button.click().run()
+        self.assertFalse(self.app.exception)
+
+        status_button = next(
+            button for button in self.app.button
+            if button.label == 'Order #1: mark as preparing'
+        )
+        status_button.click().run()
+
+        self.assertFalse(self.app.exception)
+        self.assertEqual(self.client.get('/orders').json()[0]['status'], 'preparing')
+        self.assertIn('Order #1 is now preparing.', self.app.success[0].value)
+
+    def test_customer_can_checkout_multiple_products(self):
+        self.app.button[1].click().run()
+        self.app.selectbox[0].select(2).run()
+        self.app.number_input[0].set_value(2)
+        add_button = next(
+            button for button in self.app.button
+            if button.label == 'Add to trolley'
+        )
+        add_button.click().run()
+
+        checkout_button = next(
+            button for button in self.app.button
+            if button.label == 'Checkout'
+        )
+        checkout_button.click().run()
+
+        order = self.client.get('/orders').json()[0]
+        self.assertEqual(len(order['items']), 2)
+        self.assertEqual(order['total_pence'], 797)
+        self.assertEqual(self.client.get('/menu').json()[0]['stock'], 19)
+        self.assertEqual(self.client.get('/menu').json()[1]['stock'], 28)
+
     def test_unavailable_service_displays_help(self):
         with patch('web_client.request_api', side_effect=APIError('Service unavailable')):
             app = AppTest.from_file(str(Path(__file__).with_name('website.py'))).run()

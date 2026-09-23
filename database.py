@@ -1,36 +1,33 @@
-"""Stage 3: persist fictional products, stock and orders in SQLite."""
-
-import os
+# A simple database module for a takeaway ordering system, providing functions to initialise the database, 
+# retrieve the menu, place orders, and retrieve all orders, with error handling for item not found and insufficient stock scenarios.
 import sqlite3
 from pathlib import Path
 
 from menu import MENU
 from ordering import validate_order_input
+from order_status import validate_status_change
 
 
 # Keep the database beside this file, regardless of the terminal's folder.
-DATABASE_PATH = Path(os.environ.get("TAKEAWAY_DATABASE_PATH", str(Path(__file__).resolve().with_name("restaurant.db"))))
-INITIAL_STOCK = {
-    1: 20, 2: 30, 3: 15, 4: 20, 5: 20, 6: 15,
-    7: 25, 8: 25, 9: 15, 10: 40, 11: 40, 12: 20,
-}
+DATABASE_PATH = Path(__file__).resolve().with_name("restaurant.db")
+INITIAL_STOCK = {1: 20, 2: 30, 3: 15, 4: 20, 5: 20, 6: 15, 7: 25, 8: 25, 9: 15, 10: 40, 11: 40, 12: 20}
 
-
+# Custom exceptions for specific error scenarios in the database operations, allowing the calling code to handle these cases appropriately.
 class ItemNotFoundError(ValueError):
     """Requested product does not exist."""
-
 
 class InsufficientStockError(ValueError):
     """Requested quantity exceeds available stock."""
 
-
+# A function to connect to the SQLite database, enabling foreign key constraints and returning a connection object for executing SQL queries.
 def connect(database_path=DATABASE_PATH):
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
-
+# A function to initialise the database, creating the products and orders tables if they do not exist, and populating the products 
+# table with initial stock levels.
 def initialise_database(database_path=DATABASE_PATH):
     connection = connect(database_path)
     try:
@@ -43,16 +40,6 @@ def initialise_database(database_path=DATABASE_PATH):
                     stock INTEGER NOT NULL CHECK(stock >= 0)
                 )
             """)
-            connection.execute("""
-                CREATE TABLE IF NOT EXISTS orders (
-                    id INTEGER PRIMARY KEY,
-                    item_id INTEGER NOT NULL REFERENCES products(id),
-                    quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 50),
-                    total_pence INTEGER NOT NULL CHECK(total_pence >= 0),
-                    status TEXT NOT NULL DEFAULT 'queued',
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
             for item in MENU:
                 connection.execute("""
                     INSERT INTO products (id, name, price_pence, stock)
@@ -60,10 +47,59 @@ def initialise_database(database_path=DATABASE_PATH):
                     ON CONFLICT(id) DO NOTHING
                 """, (item["id"], item["name"], item["price_pence"],
                       INITIAL_STOCK.get(item["id"], 0)))
+
+            # Older versions stored one product directly in each order. Move
+            # those rows into the new order/order_items structure once.
+            order_columns = {
+                row["name"] for row in connection.execute(
+                    "PRAGMA table_info(orders)"
+                ).fetchall()
+            }
+            if "item_id" in order_columns:
+                connection.execute("ALTER TABLE orders RENAME TO legacy_orders")
+
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id INTEGER PRIMARY KEY,
+                    total_pence INTEGER NOT NULL CHECK(total_pence >= 0),
+                    status TEXT NOT NULL DEFAULT 'queued',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS order_items (
+                    id INTEGER PRIMARY KEY,
+                    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                    item_id INTEGER NOT NULL REFERENCES products(id),
+                    quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 50),
+                    unit_price_pence INTEGER NOT NULL CHECK(unit_price_pence >= 0),
+                    total_pence INTEGER NOT NULL CHECK(total_pence >= 0),
+                    UNIQUE(order_id, item_id)
+                )
+            """)
+
+            if "item_id" in order_columns:
+                connection.execute("""
+                    INSERT INTO orders (id, total_pence, status, created_at)
+                    SELECT id, total_pence, status, created_at FROM legacy_orders
+                """)
+                connection.execute("""
+                    INSERT INTO order_items (
+                        order_id, item_id, quantity,
+                        unit_price_pence, total_pence
+                    )
+                    SELECT legacy_orders.id, legacy_orders.item_id,
+                           legacy_orders.quantity, products.price_pence,
+                           legacy_orders.total_pence
+                    FROM legacy_orders
+                    JOIN products ON products.id = legacy_orders.item_id
+                """)
+                connection.execute("DROP TABLE legacy_orders")
     finally:
         connection.close()
 
-
+# A function to retrieve the current menu from the database, returning a list of dictionaries representing each menu item,
+#  including its ID, name, price in pence, and available stock.
 def get_menu(database_path=DATABASE_PATH):
     connection = connect(database_path)
     try:
@@ -74,56 +110,154 @@ def get_menu(database_path=DATABASE_PATH):
     finally:
         connection.close()
 
-
+# A function to place an order, validating the input, checking stock availability, updating the stock in the database,
+# and inserting a new order record, returning a dictionary with the order details or raising appropriate exceptions for errors.
 def place_order(item_id, quantity, database_path=DATABASE_PATH):
-    validate_order_input(item_id, quantity)
+    try:
+        order = checkout(
+            [{"item_id": item_id, "quantity": quantity}],
+            database_path,
+        )
+    except InsufficientStockError as error:
+        # Keep the original single-item interface and tests compatible.
+        raise InsufficientStockError("Insufficient stock.") from error
+    item = order["items"][0]
+    return {
+        "order_id": order["order_id"],
+        "item_id": item["item_id"],
+        "name": item["name"],
+        "quantity": item["quantity"],
+        "total_pence": order["total_pence"],
+        "status": order["status"],
+    }
+
+
+def checkout(items, database_path=DATABASE_PATH):
+    """Validate and save a complete trolley as one atomic order."""
+    if type(items) is not list or not items:
+        raise ValueError("The trolley must contain at least one item.")
+
+    combined = {}
+    for entry in items:
+        if type(entry) is not dict:
+            raise ValueError("Each trolley item must contain an item ID and quantity.")
+        item_id = entry.get("item_id")
+        quantity = entry.get("quantity")
+        validate_order_input(item_id, quantity)
+        combined[item_id] = combined.get(item_id, 0) + quantity
+        if combined[item_id] > 50:
+            raise ValueError("The combined quantity for one item cannot exceed 50.")
+
     connection = connect(database_path)
     try:
         with connection:
-            # Reserve stock only when enough exists, in one SQL statement.
-            result = connection.execute("""
-                UPDATE products SET stock = stock - ?
-                WHERE id = ? AND stock >= ?
-            """, (quantity, item_id, quantity))
-
-            if result.rowcount == 0:
-                item = connection.execute(
-                    "SELECT id FROM products WHERE id = ?", (item_id,)
+            connection.execute("BEGIN IMMEDIATE")
+            lines = []
+            for item_id, quantity in combined.items():
+                product = connection.execute(
+                    "SELECT * FROM products WHERE id = ?", (item_id,)
                 ).fetchone()
-                if item is None:
+                if product is None:
                     raise ItemNotFoundError("Menu item not found.")
-                raise InsufficientStockError("Insufficient stock.")
+                if product["stock"] < quantity:
+                    raise InsufficientStockError(
+                        f"Insufficient stock for {product['name']}."
+                    )
+                line_total = product["price_pence"] * quantity
+                lines.append({
+                    "item_id": item_id,
+                    "name": product["name"],
+                    "quantity": quantity,
+                    "unit_price_pence": product["price_pence"],
+                    "total_pence": line_total,
+                })
 
-            item = connection.execute(
-                "SELECT * FROM products WHERE id = ?", (item_id,)
-            ).fetchone()
-            total = item["price_pence"] * quantity
-            result = connection.execute("""
-                INSERT INTO orders (item_id, quantity, total_pence)
-                VALUES (?, ?, ?)
-            """, (item_id, quantity, total))
+            total = sum(line["total_pence"] for line in lines)
+            result = connection.execute(
+                "INSERT INTO orders (total_pence) VALUES (?)", (total,)
+            )
+            order_id = result.lastrowid
+            for line in lines:
+                connection.execute("""
+                    UPDATE products SET stock = stock - ? WHERE id = ?
+                """, (line["quantity"], line["item_id"]))
+                connection.execute("""
+                    INSERT INTO order_items (
+                        order_id, item_id, quantity,
+                        unit_price_pence, total_pence
+                    ) VALUES (?, ?, ?, ?, ?)
+                """, (
+                    order_id, line["item_id"], line["quantity"],
+                    line["unit_price_pence"], line["total_pence"],
+                ))
             order = {
-                "order_id": result.lastrowid,
-                "item_id": item_id,
-                "name": item["name"],
-                "quantity": quantity,
+                "order_id": order_id,
                 "total_pence": total,
                 "status": "queued",
+                "items": lines,
             }
-        # The transaction has committed before we report success.
         return order
     finally:
         connection.close()
 
-
+# A function to retrieve all saved orders from the database, returning a list of dictionaries representing each order,
+# including its ID, item ID, name, quantity, total price in pence, status, and creation timestamp.
 def get_orders(database_path=DATABASE_PATH):
     connection = connect(database_path)
     try:
-        rows = connection.execute("""
-            SELECT orders.*, products.name
-            FROM orders JOIN products ON orders.item_id = products.id
-            ORDER BY orders.id
-        """).fetchall()
-        return [dict(row) for row in rows]
+        rows = connection.execute(
+            "SELECT * FROM orders ORDER BY id"
+        ).fetchall()
+        orders = []
+        for row in rows:
+            item_rows = connection.execute("""
+                SELECT order_items.item_id, products.name,
+                       order_items.quantity, order_items.unit_price_pence,
+                       order_items.total_pence
+                FROM order_items
+                JOIN products ON products.id = order_items.item_id
+                WHERE order_items.order_id = ?
+                ORDER BY order_items.id
+            """, (row["id"],)).fetchall()
+            items = [dict(item) for item in item_rows]
+            order = dict(row)
+            order["items"] = items
+            # These summary fields keep the original single-item interface
+            # compatible with the terminal, queue and earlier tests.
+            order["item_id"] = items[0]["item_id"] if len(items) == 1 else None
+            order["name"] = ", ".join(item["name"] for item in items)
+            order["quantity"] = sum(item["quantity"] for item in items)
+            orders.append(order)
+        return orders
     finally:
         connection.close()
+
+# A function that updates the order status. 
+def update_order_status(order_id, new_status, database_path=DATABASE_PATH):
+    connection = connect(database_path)
+
+    try:
+        with connection:
+            # Prevent another writer changing the order during validation.
+            connection.execute("BEGIN IMMEDIATE")
+
+            order = connection.execute(
+                "SELECT status FROM orders WHERE id = ?",
+                (order_id,),
+            ).fetchone()
+
+            if order is None:
+                raise ValueError("Order not found.")
+
+            validate_status_change(order["status"], new_status)
+
+            connection.execute(
+                "UPDATE orders SET status = ? WHERE id = ?",
+                (new_status, order_id),
+            )
+
+        return {"order_id": order_id, "status": new_status}
+
+    finally:
+        connection.close()
+        

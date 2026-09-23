@@ -1,11 +1,13 @@
-"""Stage 5: schedule a snapshot of queued orders without changing them."""
-
 # Invented per-unit times: burger 3 minutes, fries 2, wrap 4.
 PREP_MINUTES = {
     1: 3, 2: 2, 3: 4, 4: 3, 5: 5, 6: 4,
     7: 4, 8: 3, 9: 2, 10: 1, 11: 1, 12: 2,
 }
 
+# A function to simulate the preparation queue for orders, 
+# assigning each order to the station that becomes free first and calculating waiting times 
+# and preparation times for each order, returning a summary of the simulation including average 
+# and maximum waiting times.
 
 def simulate_queue(orders, stations=2):
     """Assign orders in ID order to the station that becomes free first."""
@@ -17,14 +19,19 @@ def simulate_queue(orders, stations=2):
     for order in sorted(orders, key=lambda order: order["id"]):
         if order["status"] != "queued":
             continue
-        item_id = order["item_id"]
-        if item_id not in PREP_MINUTES:
-            raise ValueError(f"No preparation time configured for product {item_id}.")
-        quantity = order["quantity"]
-        if type(quantity) is not int or quantity < 1:
-            raise ValueError("Queued orders must have positive whole-number quantities.")
-
-        preparation = PREP_MINUTES[item_id] * quantity
+        items = order.get("items") or [{
+            "item_id": order["item_id"],
+            "quantity": order["quantity"],
+        }]
+        preparation = 0
+        for item in items:
+            item_id = item["item_id"]
+            if item_id not in PREP_MINUTES:
+                raise ValueError(f"No preparation time configured for product {item_id}.")
+            quantity = item["quantity"]
+            if type(quantity) is not int or quantity < 1:
+                raise ValueError("Queued orders must have positive whole-number quantities.")
+            preparation += PREP_MINUTES[item_id] * quantity
         station = min(range(stations), key=lambda index: available_at[index])
         start = available_at[station]
         finish = start + preparation
@@ -37,6 +44,7 @@ def simulate_queue(orders, stations=2):
             "ready_after_minutes": finish,
         })
 
+# A variable that contains the length of the schedule as well as the total wait time. 
     count = len(schedule)
     total_wait = sum(entry["waiting_minutes"] for entry in schedule)
     return {
