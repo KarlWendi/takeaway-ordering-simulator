@@ -37,6 +37,7 @@ For one-click startup in VS Code, open `start_website.py` and press the Run butt
 7. `orders` stores the overall order. `order_items` stores its related products, quantities and price snapshots.
 8. A successful checkout clears the trolley, displays a confirmation and refreshes stock and saved orders.
 9. The slider changes `GET /queue?stations=...`. For multi-item orders, preparation time is the sum of all line-item preparation times.
+10. When staff starts preparation, the database saves `preparation_started_at` and `estimated_ready_at`. The saved-order section polls every five seconds. An elapsed preparing order becomes `ready` automatically on the next poll.
 
 Streamlit reruns the Python script after interactions. That is why POST belongs inside `if submitted`, and why it is never cached or automatically retried. A connection failure may happen after an order was saved: check the saved-order list before submitting again. Duplicate-request protection is still future work.
 
@@ -45,6 +46,8 @@ TAKEAWAY_API_URL optionally changes the service address on the Streamlit server.
 ## Demonstrate and check
 
 Add two different products, confirm that stock has not changed, remove and re-add a product, then check out. The result should be one order containing two line items, with stock deducted only at checkout. Try a trolley where one product exceeds available stock: the entire checkout is rejected. Stop the API to see the friendly connection error, then restart it. Automated tests use temporary databases and verify the trolley, transaction rollback, migration, status progression and queue timing.
+
+To demonstrate automatic readiness, place an order and use **mark as preparing**. The table shows its UTC ready estimate. Leave the page open: it checks every five seconds and changes the status to **ready** after the calculated preparation duration. **Mark as collected** remains manual because the software cannot know when a customer physically receives the food.
 
 This remains an educational simulation with no payment processing, customer accounts or authentication.
 

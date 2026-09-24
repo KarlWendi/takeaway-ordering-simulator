@@ -61,6 +61,28 @@ class StatusApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_api_poll_marks_elapsed_order_ready(self):
+        response = self.client.patch(
+            f"/orders/{self.order_id}/status",
+            json={"status": "preparing"},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        import sqlite3
+        connection = sqlite3.connect(self.path)
+        with connection:
+            connection.execute(
+                "UPDATE orders SET estimated_ready_at = '2000-01-01 00:00:00' "
+                "WHERE id = ?",
+                (self.order_id,),
+            )
+        connection.close()
+
+        self.assertEqual(
+            self.client.get("/orders").json()[0]["status"],
+            "ready",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

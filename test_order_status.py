@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import sqlite3
 from pathlib import Path
 
 from database import (
@@ -41,6 +42,27 @@ class StatusDatabaseTests(unittest.TestCase):
             update_order_status(999, "preparing", self.path)
 
         self.assertEqual(len(get_orders(self.path)), 1)
+
+    def test_preparing_order_has_an_estimated_ready_time(self):
+        update_order_status(self.order_id, "preparing", self.path)
+
+        order = get_orders(self.path)[0]
+        self.assertIsNotNone(order["preparation_started_at"])
+        self.assertIsNotNone(order["estimated_ready_at"])
+        self.assertGreater(order["estimated_ready_at"], order["preparation_started_at"])
+
+    def test_elapsed_preparation_becomes_ready_automatically(self):
+        update_order_status(self.order_id, "preparing", self.path)
+        connection = sqlite3.connect(self.path)
+        with connection:
+            connection.execute(
+                "UPDATE orders SET estimated_ready_at = '2000-01-01 00:00:00' "
+                "WHERE id = ?",
+                (self.order_id,),
+            )
+        connection.close()
+
+        self.assertEqual(get_orders(self.path)[0]["status"], "ready")
 
 
 if __name__ == "__main__":
