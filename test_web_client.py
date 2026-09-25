@@ -40,6 +40,7 @@ class WebClientRetryTests(unittest.TestCase):
     @patch("web_client.httpx.request")
     def test_public_demo_uses_embedded_api(self, remote_request):
         from api import create_app
+        from database import initialise_database
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             database_path = os.path.join(temporary_directory, "demo.db")
@@ -48,6 +49,10 @@ class WebClientRetryTests(unittest.TestCase):
                 patch(
                     "web_client._create_embedded_app",
                     return_value=create_app(database_path),
+                ),
+                patch(
+                    "web_client._initialise_embedded_database",
+                    side_effect=lambda: initialise_database(database_path),
                 ),
             ):
                 result = web_client.request_api("GET", "/menu")
