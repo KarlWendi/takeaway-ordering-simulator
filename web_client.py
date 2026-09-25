@@ -32,7 +32,6 @@ def request_api(method, path, **kwargs):
                 raise APIError(
                     "The free ordering service is still waking up. Please try again shortly."
                 ) from error
-            # Never retry a write: the server may have completed it before the connection failed.
             raise APIError(
                 "Could not reach the ordering service. If you submitted an order, "
                 "check saved orders before trying again."
@@ -56,10 +55,8 @@ def _request_embedded(method, path, **kwargs):
     if _embedded_client is None:
         from fastapi.testclient import TestClient
 
+        _initialise_embedded_database()
         _embedded_client = TestClient(_create_embedded_app())
-        # Entering the client runs FastAPI's lifespan hook, which creates the
-        # database tables before the first menu or order request.
-        _embedded_client.__enter__()
     return _embedded_client.request(method, path, **kwargs)
 
 
@@ -69,11 +66,17 @@ def _create_embedded_app():
     return create_app()
 
 
+def _initialise_embedded_database():
+    from database import DATABASE_PATH, initialise_database
+
+    initialise_database(DATABASE_PATH)
+
+
 def _close_embedded_client():
     """Close and reset the in-process client (mainly used by tests)."""
     global _embedded_client
     if _embedded_client is not None:
-        _embedded_client.__exit__(None, None, None)
+        _embedded_client.close()
         _embedded_client = None
 
 
