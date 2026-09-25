@@ -7,6 +7,7 @@ API_URL = os.environ.get("TAKEAWAY_API_URL", "http://127.0.0.1:8000").rstrip("/"
 READ_ATTEMPTS = 12
 READ_RETRY_SECONDS = 5
 TEMPORARY_STATUS_CODES = {502, 503, 504}
+_embedded_client = None
 
 
 class APIError(Exception):
@@ -15,6 +16,9 @@ class APIError(Exception):
 
 def request_api(method, path, **kwargs):
     method = method.upper()
+    if os.environ.get("TAKEAWAY_TEMPORARY_DEMO") == "1":
+        return _response_data(_request_embedded(method, path, **kwargs))
+
     attempts = READ_ATTEMPTS if method == "GET" else 1
 
     for attempt in range(attempts):
@@ -43,6 +47,21 @@ def request_api(method, path, **kwargs):
             continue
         break
 
+    return _response_data(response)
+
+
+def _request_embedded(method, path, **kwargs):
+    """Run the same FastAPI routes in-process for the self-contained public demo."""
+    global _embedded_client
+    if _embedded_client is None:
+        from fastapi.testclient import TestClient
+        from api import create_app
+
+        _embedded_client = TestClient(create_app())
+    return _embedded_client.request(method, path, **kwargs)
+
+
+def _response_data(response):
     if response.is_error:
         try:
             detail = response.json().get("detail")

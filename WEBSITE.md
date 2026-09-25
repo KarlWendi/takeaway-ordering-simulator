@@ -43,6 +43,8 @@ Streamlit reruns the Python script after interactions. That is why POST belongs 
 
 TAKEAWAY_API_URL optionally changes the service address on the Streamlit server. The browser itself does not call FastAPI; Streamlit's Python process does. Both processes must be able to reach the configured service.
 
+The hosted demo is self-contained. When `TAKEAWAY_TEMPORARY_DEMO=1`, the website runs the same FastAPI routes inside its own process instead of depending on a second free service to wake up. Local development continues to use the separate API process, so the HTTP architecture can still be demonstrated.
+
 ## Demonstrate and check
 
 Add two different products, confirm that stock has not changed, remove and re-add a product, then check out. The result should be one order containing two line items, with stock deducted only at checkout. Try a trolley where one product exceeds available stock: the entire checkout is rejected. Stop the API to see the friendly connection error, then restart it. Automated tests use temporary databases and verify the trolley, transaction rollback, migration, status progression and queue timing.
