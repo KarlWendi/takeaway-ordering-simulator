@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -9,7 +10,7 @@ import web_client
 
 class WebClientRetryTests(unittest.TestCase):
     def tearDown(self):
-        web_client._embedded_client = None
+        web_client._close_embedded_client()
 
     @patch("web_client.time.sleep")
     @patch("web_client.httpx.request")
@@ -38,10 +39,21 @@ class WebClientRetryTests(unittest.TestCase):
 
     @patch("web_client.httpx.request")
     def test_public_demo_uses_embedded_api(self, remote_request):
-        with patch.dict(os.environ, {"TAKEAWAY_TEMPORARY_DEMO": "1"}):
-            result = web_client.request_api("GET", "/")
+        from api import create_app
 
-        self.assertEqual(result["message"], "Takeaway mock API")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = os.path.join(temporary_directory, "demo.db")
+            with (
+                patch.dict(os.environ, {"TAKEAWAY_TEMPORARY_DEMO": "1"}),
+                patch(
+                    "web_client._create_embedded_app",
+                    return_value=create_app(database_path),
+                ),
+            ):
+                result = web_client.request_api("GET", "/menu")
+
+        self.assertGreater(len(result), 3)
+        self.assertEqual(result[0]["name"], "Burger")
         remote_request.assert_not_called()
 
 
